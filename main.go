@@ -1,6 +1,6 @@
 package main
 
-//all imports goes here
+// MARK: all imports goes here
 import (
 	"fmt"
 	"log"
