@@ -1,46 +1,75 @@
 package controllers
 
 import (
-	"fmt"
+	"bytes"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 )
 
+const RESUME_HELPER_SERVICE = "http://localhost:8000/extracter/"
 const MAX_UPLOAD_SIZE = int64(10 * 1024 * 1024) // 10 MB limit
 
-// region UploadHandler
-func UploadHandler(w http.ResponseWriter, r *http.Request) {
-  if r.Method != http.MethodPost {
-    http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-    return
-  }
+// MARK: UploadHandler
+func UploadHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(res, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-  err := r.ParseMultipartForm(MAX_UPLOAD_SIZE)
-  if err != nil {
-    log.Println("Error parsing multipart form:", err)
-    http.Error(w, "Error parsing upload", http.StatusBadRequest)
-    return
-  }
+	err := req.ParseMultipartForm(MAX_UPLOAD_SIZE)
+	if err != nil {
+		log.Println("Error parsing multipart form:", err)
+		http.Error(res, "Error parsing upload", http.StatusBadRequest)
+		return
+	}
 
-  file, _, err := r.FormFile("file")
-  if err != nil {
-    log.Println("Error getting uploaded file:", err)
-    http.Error(w, "Error getting uploaded file", http.StatusBadRequest)
-    return
-  }
+	file, header, err := req.FormFile("file")
+	if err != nil {
+		log.Println("Error getting uploaded file:", err)
+		http.Error(res, "Error getting uploaded file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
 
-  defer file.Close()
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
 
-  data, err := io.ReadAll(file)
-  if err != nil {
-    log.Println("Error reading uploaded file:", err)
-    http.Error(w, "Error reading uploaded file", http.StatusInternalServerError)
-    return
-  }
+	part, err := writer.CreateFormFile("file", header.Filename)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
 
-  // http.Post("http://localhost:8000/extracter/api/v1/extractResume",)
+	_, err = io.Copy(part, file)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+	writer.Close()
 
-  processedData := string(data)
-  fmt.Fprintf(w, "Successfully uploaded and processed file: %s", processedData)
+	parserReq, err := http.NewRequest("POST", RESUME_HELPER_SERVICE+"api/v1/extractResume", &requestBody)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+
+	parserReq.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(parserReq)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(res, "Unable to parse resume", http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+	_, err = io.Copy(res, resp.Body)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
