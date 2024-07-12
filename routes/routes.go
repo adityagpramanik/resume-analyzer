@@ -12,7 +12,9 @@ func SetupRoutes() *mux.Router {
     router.HandleFunc("/", controllers.RootHandler).Methods("GET")
 
     // MARK: Resume routes
-    router.HandleFunc("/upload", controllers.UploadHandler).Methods("POST")
+    router.HandleFunc("/resumes/analyze", controllers.ResumeAnaylze).Methods("POST")
+    router.HandleFunc("/resumes/analyze", controllers.ResumeAnalyzeCloudFile).Methods("GET")
+    router.HandleFunc("/resumes/upload", controllers.ResumeUpload).Methods("POST")
 
     return router
 }

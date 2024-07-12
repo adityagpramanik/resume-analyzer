@@ -6,8 +6,16 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"resume-scanner.com/resume-scanner/routes"
 )
+
+func init() {
+	err := godotenv.Load();
+	if err != nil {
+		log.Fatal("Error loading environment secrets");
+	}
+}
 
 func main() {
 	router := routes.SetupRoutes()
