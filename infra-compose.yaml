@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  cassandra-node1:
+    image: cassandra:latest
+    container_name: cassandra-node1
+    ports:
+      - 9042:9042
+    networks:
+      - services
+    volumes:
+      - ~/cassandra/node1/data:/var/lib/cassandra
+    environment:
+      - CASSANDRA_CLUSTER_NAME=my_cluster
+      - CASSANDRA_NUM_TOKENS=256
+      - CASSANDRA_SEEDS=cassandra-node1
+      - CASSANDRA_LISTEN_ADDRESS=cassandra-node1
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra-node1
+      - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node1
+
+  cassandra-node2:
+    image: cassandra:latest
+    container_name: cassandra-node2
+    ports:
+      - 9043:9042
+    networks:
+      - services
+    volumes:
+      - ~/cassandra/node2/data:/var/lib/cassandra
+    environment:
+      - CASSANDRA_CLUSTER_NAME=my_cluster
+      - CASSANDRA_NUM_TOKENS=256
+      - CASSANDRA_SEEDS=cassandra-node1
+      - CASSANDRA_LISTEN_ADDRESS=cassandra-node2
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra-node2
+      - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node2
+
+  cassandra-node3:
+    image: cassandra:latest
+    container_name: cassandra-node3
+    ports:
+      - 9044:9042
+    networks:
+      - services
+    volumes:
+      - ~/cassandra/node3/data:/var/lib/cassandra
+    environment:
+      - CASSANDRA_CLUSTER_NAME=my_cluster
+      - CASSANDRA_NUM_TOKENS=256
+      - CASSANDRA_SEEDS=cassandra-node1
+      - CASSANDRA_LISTEN_ADDRESS=cassandra-node3
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra-node3
+      - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node3
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - 9000:9000
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    volumes:
+      - ~/minio/data:/data
+      - ~/minio/config:/root/.minio
+    command: server /data
+    networks:
+      - services
+
+networks:
+  services:
+    driver: bridge
