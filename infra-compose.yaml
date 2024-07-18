@@ -35,22 +35,22 @@ services:
       - CASSANDRA_BROADCAST_ADDRESS=cassandra-node2
       - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node2
 
-  # cassandra-node3:
-  #   image: cassandra:latest
-  #   container_name: cassandra-node3
-  #   ports:
-  #     - 9044:9042
-  #   networks:
-  #     - services
-  #   volumes:
-  #     - ~/cassandra/node3/data:/var/lib/cassandra
-  #   environment:
-  #     - CASSANDRA_CLUSTER_NAME=my_cluster
-  #     - CASSANDRA_NUM_TOKENS=256
-  #     - CASSANDRA_SEEDS=cassandra-node1
-  #     - CASSANDRA_LISTEN_ADDRESS=cassandra-node3
-  #     - CASSANDRA_BROADCAST_ADDRESS=cassandra-node3
-  #     - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node3
+  cassandra-node3:
+    image: cassandra:latest
+    container_name: cassandra-node3
+    ports:
+      - 9044:9042
+    networks:
+      - services
+    volumes:
+      - ~/cassandra/node3/data:/var/lib/cassandra
+    environment:
+      - CASSANDRA_CLUSTER_NAME=my_cluster
+      - CASSANDRA_NUM_TOKENS=256
+      - CASSANDRA_SEEDS=cassandra-node1
+      - CASSANDRA_LISTEN_ADDRESS=cassandra-node3
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra-node3
+      - CASSANDRA_BROADCAST_RPC_ADDRESS=cassandra-node3
 
   minio:
     image: minio/minio
