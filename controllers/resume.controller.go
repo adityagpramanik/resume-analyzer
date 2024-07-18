@@ -18,7 +18,7 @@ import (
 const MAX_UPLOAD_SIZE = int64(10 * 1024 * 1024) // 10 MB limit
 
 func init() {
-	godotenv.Load();
+	godotenv.Load()
 }
 
 // MARK: Analyze attached file
@@ -58,7 +58,7 @@ func ResumeAnaylze(res http.ResponseWriter, req *http.Request) {
 	writer.Close()
 
 	RESUME_HELPER_SERVICE := os.Getenv("RESUME_HELPER_SERVICE")
-	parserReq, err := http.NewRequest("POST", RESUME_HELPER_SERVICE+"api/v1/extractResume", &requestBody)
+	parserReq, err := http.NewRequest("POST", RESUME_HELPER_SERVICE+"extracter/api/v1/extractResume", &requestBody)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
@@ -117,19 +117,33 @@ func ResumeUpload(res http.ResponseWriter, req *http.Request) {
 	}
 	defer file.Close()
 
-	RESUME_BUCKET := os.Getenv("RESUME_BUCKET");
-	filename := uuid.New()
+	if handler.Header["Content-Type"][0] != "application/pdf" {
+		http.Error(res, "Error getting uploaded file", http.StatusBadRequest)
+		return
+	}
 
-	err = commonservices.UploadFileBuffer(RESUME_BUCKET, filename.String(), file, handler.Size);
+	RESUME_BUCKET := os.Getenv("RESUME_BUCKET")
+	filename := uuid.New().String() + ".pdf";
+
+	err = commonservices.UploadFileBuffer(RESUME_BUCKET, filename, file, handler.Size);
 	if err != nil {
 		log.Println("Error getting uploaded file:", err)
 		http.Error(res, "Error getting uploaded file", http.StatusBadRequest)
 		return
 	}
 
-	url, err := commonservices.GetFileUrl(RESUME_BUCKET, filename.String())
+	url, err := commonservices.GetFileUrl(RESUME_BUCKET, filename)
 	if err != nil {
 		http.Error(res, "Unable to generate file link", http.StatusBadRequest)
+	}
+
+	session := commonservices.GetSession()
+
+	err = session.Query("insert into resume_analyzer.files (file_id, file_name, bucket, url, createdat, updatedat) VALUES (uuid(), ?, ?, ?, dateof(now()), dateof(now()));", filename, RESUME_BUCKET, url).Exec()
+
+	if err != nil {
+		http.Error(res, "Error processing file.", http.StatusBadRequest)
+		return
 	}
 
 	data := map[string]interface{}{
@@ -140,9 +154,9 @@ func ResumeUpload(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(res, "Unable to parse data", http.StatusInternalServerError)
 	}
-	
+
 	res.Header().Set("Content-Type", "application/json")
-	_, err = res.Write(result);
+	_, err = res.Write(result)
 	if err != nil {
 		http.Error(res, "Error getting uploaded resume", http.StatusBadRequest)
 	}
