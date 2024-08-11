@@ -2,6 +2,10 @@
 
 Resume Analyzer is a Go-based application designed to analyze and extract useful information from resumes. It leverages Docker, Cassandra, and MinIO to provide a scalable and efficient solution for processing resumes.
 
+The analyzer and resume parser is implemented using a different python service which later serves GO HTTP API gateway.
+
+### ==> [Scrapper Server](https://github.com/adityagpramanik/scrapperserver)
+
 ## Features ✨
 
 - **Go-based Backend**: Utilizes the Go programming language for high performance.
