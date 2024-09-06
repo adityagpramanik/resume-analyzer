@@ -12,8 +12,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
-	commonservices "resume-scanner.com/resume-scanner/common.services"
+	commonservices "resume-scanner.com/resume-scanner/services/common"
+	"resume-scanner.com/resume-scanner/services/files"
 )
+
+// Local models here
+type CloudAnalyserScrapperReqDTO struct {
+	Url string `json:"url"`
+}
 
 const MAX_UPLOAD_SIZE = int64(10 * 1024 * 1024) // 10 MB limit
 
@@ -87,12 +93,80 @@ func ResumeAnaylze(res http.ResponseWriter, req *http.Request) {
 
 // MARK: Analyze file from blob server
 func ResumeAnalyzeCloudFile(res http.ResponseWriter, req *http.Request) {
-	// TODO: implement this
 	if req.Method != http.MethodGet {
 		http.Error(res, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	fmt.Fprintf(res, "Analyzed resume")
+	// read params
+	params := req.URL.Query()
+
+	file_id, present := params["file_id"]
+	if !present || len(file_id) == 0 {
+		http.Error(res, "file_id not present", http.StatusBadRequest)
+	}
+
+	// get file info from the db
+	file, err := files.GetFileByFileId(file_id[0])
+	if err != nil {
+		log.Fatal("error: ", err)
+		http.Error(res, "Unable to fetch file.", http.StatusBadRequest)
+	}
+
+	// get public url from the file from db
+	RESUME_BUCKET := os.Getenv("RESUME_BUCKET")
+	url, err := commonservices.GetFileUrl(RESUME_BUCKET, file.FileName)
+	if err != nil {
+		log.Println("Error public url for the document:", err)
+		http.Error(res, "Error analyzing file from the url.", http.StatusBadRequest)
+		return
+	}
+	// request scrapper-server to analyze the file
+	RESUME_HELPER_SERVICE := os.Getenv("RESUME_HELPER_SERVICE")
+	requestBody := CloudAnalyserScrapperReqDTO{
+		Url: url,
+	}
+
+	// Buffer to hold the JSON data
+	var bodyBuff bytes.Buffer
+
+	// Create a new JSON encoder and disable HTML escaping
+	encoder := json.NewEncoder(&bodyBuff)
+	encoder.SetEscapeHTML(false)
+	err = encoder.Encode(requestBody)
+	if err != nil {
+		fmt.Println("Error marshalling JSON:", err)
+		return
+	}
+
+	parserReq, err := http.NewRequest("POST", RESUME_HELPER_SERVICE+"extracter/api/v1/extractResume", &bodyBuff)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+
+	// Set headers
+	parserReq.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(parserReq)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Read and print the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		http.Error(res, "Unable to process file: "+file_id[0], resp.StatusCode)
+		return
+	}
+	fmt.Fprint(res, string(respBody))
 }
 
 // MARK: Upload resume to blob storage server
