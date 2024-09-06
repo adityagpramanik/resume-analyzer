@@ -75,7 +75,7 @@ func GetFileUrl(bucketName, objectName string) (string, error) {
 	reqParams := make(url.Values)
 	presignedURL, err := minioClient.PresignedGetObject(bucketName, objectName, time.Second*24*60*60, reqParams)
 	if err != nil {
-		return "", fmt.Errorf("failed to upload file: %v", err)
+		return "", fmt.Errorf("failed to generate public url for the file: %v", err)
 	}
 	return presignedURL.String(), nil;
 }
